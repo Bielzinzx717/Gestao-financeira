@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Olá, {{ current_user.nome }}!</h2>
+<div class="row mb-3">
+  <div class="col-md-4">
+    <div class="card text-bg-success text-center"><div class="card-body">
+      <h5>Receitas</h5><p>R$ {{ total_receitas|round(2) }}</p>
+    </div></div>
+  </div>
+  <div class="col-md-4">
+    <div class="card text-bg-danger text-center"><div class="card-body">
+      <h5>Despesas</h5><p>R$ {{ total_despesas|round(2) }}</p>
+    </div></div>
+  </div>
+  <div class="col-md-4">
+    <div class="card text-bg-primary text-center"><div class="card-body">
+      <h5>Saldo</h5><p>R$ {{ saldo|round(2) }}</p>
+    </div></div>
+  </div>
+</div>
+
+<a href="{{ url_for('nova_transacao') }}" class="btn btn-success mb-3">➕ Nova Transação</a>
+
+<table class="table table-striped">
+  <thead><tr><th>Descrição</th><th>Tipo</th><th>Categoria</th><th>Valor</th><th>Data</th><th></th></tr></thead>
+  <tbody>
+    {% for t in transacoes %}
+    <tr>
+      <td>{{ t.descricao }}</td>
+      <td>{{ t.tipo }}</td>
+      <td>{{ t.categoria }}</td>
+      <td>R$ {{ t.valor }}</td>
+      <td>{{ t.data.strftime('%d/%m/%Y') }}</td>
+      <td><a href="{{ url_for('delete', id=t.id) }}" class="btn btn-sm btn-outline-danger">Excluir</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
