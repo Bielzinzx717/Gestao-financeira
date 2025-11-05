@@ -2,7 +2,7 @@ from flask import Flask, render_template, redirect, url_for, request, flash
 from flask_login import login_user, logout_user, login_required, current_user
 from extensions import db, login_manager
 from models import Usuario, Transacao
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 from sqlalchemy import func, case  # Para relatório mensal
 
@@ -73,6 +73,18 @@ def logout():
     flash('Você saiu da sua conta.', 'success')
     return redirect(url_for('login'))
 
+@app.route('/definir_meta', methods=['POST'])
+@login_required
+def definir_meta():
+    meta = float(request.form.get('meta_mensal', 0))
+    if meta < 0:
+        flash('A meta deve ser um valor positivo.', 'error')
+    else:
+        current_user.meta_mensal = meta
+        db.session.commit()
+        flash(f'Meta mensal definida para R$ {meta:.2f}!', 'success')
+    return redirect(url_for('dashboard'))
+
 @app.route('/dashboard', methods=['GET'])
 @login_required
 def dashboard():
@@ -116,6 +128,79 @@ def dashboard():
     categorias_disponiveis = db.session.query(Transacao.categoria).filter_by(usuario_id=current_user.id).distinct().all()
     categorias_disponiveis = [c[0] for c in categorias_disponiveis]
 
+    mes_atual = datetime.now().strftime('%Y-%m')
+    mes_anterior = (datetime.now().replace(day=1) - timedelta(days=1)).strftime('%Y-%m')
+    
+    # Gastos por categoria (Top 5)
+    gastos_por_categoria = db.session.query(
+        Transacao.categoria,
+        func.sum(Transacao.valor).label('total')
+    ).filter(
+        Transacao.usuario_id == current_user.id,
+        Transacao.tipo == 'despesa',
+        func.strftime('%Y-%m', Transacao.data) == mes_atual
+    ).group_by(Transacao.categoria).order_by(func.sum(Transacao.valor).desc()).limit(5).all()
+    
+    top_categorias = [{'categoria': cat, 'total': total} for cat, total in gastos_por_categoria]
+    
+    # Comparação mês atual vs anterior
+    despesas_mes_atual = db.session.query(func.sum(Transacao.valor)).filter(
+        Transacao.usuario_id == current_user.id,
+        Transacao.tipo == 'despesa',
+        func.strftime('%Y-%m', Transacao.data) == mes_atual
+    ).scalar() or 0.0
+    
+    receitas_mes_atual = db.session.query(func.sum(Transacao.valor)).filter(
+        Transacao.usuario_id == current_user.id,
+        Transacao.tipo == 'receita',
+        func.strftime('%Y-%m', Transacao.data) == mes_atual
+    ).scalar() or 0.0
+    
+    despesas_mes_anterior = db.session.query(func.sum(Transacao.valor)).filter(
+        Transacao.usuario_id == current_user.id,
+        Transacao.tipo == 'despesa',
+        func.strftime('%Y-%m', Transacao.data) == mes_anterior
+    ).scalar() or 0.0
+    
+    receitas_mes_anterior = db.session.query(func.sum(Transacao.valor)).filter(
+        Transacao.usuario_id == current_user.id,
+        Transacao.tipo == 'receita',
+        func.strftime('%Y-%m', Transacao.data) == mes_anterior
+    ).scalar() or 0.0
+    
+    comparacao_mensal = {
+        'mes_atual': mes_atual,
+        'mes_anterior': mes_anterior,
+        'receitas_atual': receitas_mes_atual,
+        'receitas_anterior': receitas_mes_anterior,
+        'despesas_atual': despesas_mes_atual,
+        'despesas_anterior': despesas_mes_anterior,
+        'variacao_receitas': receitas_mes_atual - receitas_mes_anterior,
+        'variacao_despesas': despesas_mes_atual - despesas_mes_anterior
+    }
+    
+    # Previsão de gastos (média dos últimos 3 meses)
+    tres_meses_atras = (datetime.now().replace(day=1) - timedelta(days=90)).strftime('%Y-%m')
+    
+    media_despesas = db.session.query(func.avg(Transacao.valor)).filter(
+        Transacao.usuario_id == current_user.id,
+        Transacao.tipo == 'despesa',
+        func.strftime('%Y-%m', Transacao.data) >= tres_meses_atras
+    ).scalar() or 0.0
+    
+    dias_no_mes = datetime.now().day
+    dias_totais_mes = (datetime.now().replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
+    dias_totais_mes = dias_totais_mes.day
+    
+    previsao_gastos = (despesas_mes_atual / dias_no_mes) * dias_totais_mes if dias_no_mes > 0 else 0
+    
+    estatisticas = {
+        'top_categorias': top_categorias,
+        'comparacao_mensal': comparacao_mensal,
+        'previsao_gastos': previsao_gastos,
+        'media_despesas_3meses': media_despesas
+    }
+
     if data_inicial_str and data_final_str:
         transacoes = query_filtrada.order_by(Transacao.data.desc()).all()
         total_receitas = sum(t.valor for t in transacoes if t.tipo == 'receita')
@@ -133,7 +218,8 @@ def dashboard():
                                filtro_tipo=filtro_tipo,
                                filtro_categoria=filtro_categoria,
                                filtro_busca=filtro_busca,
-                               categorias_disponiveis=categorias_disponiveis)
+                               categorias_disponiveis=categorias_disponiveis,
+                               estatisticas=estatisticas)
 
     else:
         # Relatório mensal padrão
@@ -179,7 +265,8 @@ def dashboard():
                                filtro_tipo=filtro_tipo,
                                filtro_categoria=filtro_categoria,
                                filtro_busca=filtro_busca,
-                               categorias_disponiveis=categorias_disponiveis)
+                               categorias_disponiveis=categorias_disponiveis,
+                               estatisticas=estatisticas)
 
 @app.route('/nova', methods=['GET', 'POST'])
 @login_required

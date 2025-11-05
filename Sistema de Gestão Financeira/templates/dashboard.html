@@ -3,6 +3,82 @@
 {% block content %}
 <h2>Olá, {{ current_user.nome }}!</h2>
 
+<!-- Seção de estatísticas avançadas -->
+<div class="row mb-4">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header bg-primary text-white">
+        <h5 class="mb-0">Top 5 Categorias de Gastos (Mês Atual)</h5>
+      </div>
+      <div class="card-body">
+        {% if estatisticas.top_categorias %}
+          <ul class="list-group">
+            {% for item in estatisticas.top_categorias %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              {{ item.categoria }}
+              <span class="badge bg-danger rounded-pill">R$ {{ item.total|round(2) }}</span>
+            </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted mb-0">Nenhuma despesa registrada neste mês.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header bg-info text-white">
+        <h5 class="mb-0">Comparação Mensal</h5>
+      </div>
+      <div class="card-body">
+        <h6>Mês Atual ({{ estatisticas.comparacao_mensal.mes_atual }})</h6>
+        <p class="mb-1">Receitas: <strong class="text-success">R$ {{ estatisticas.comparacao_mensal.receitas_atual|round(2) }}</strong></p>
+        <p class="mb-3">Despesas: <strong class="text-danger">R$ {{ estatisticas.comparacao_mensal.despesas_atual|round(2) }}</strong></p>
+        
+        <h6>Mês Anterior ({{ estatisticas.comparacao_mensal.mes_anterior }})</h6>
+        <p class="mb-1">Receitas: <strong class="text-success">R$ {{ estatisticas.comparacao_mensal.receitas_anterior|round(2) }}</strong></p>
+        <p class="mb-3">Despesas: <strong class="text-danger">R$ {{ estatisticas.comparacao_mensal.despesas_anterior|round(2) }}</strong></p>
+        
+        <hr>
+        <h6>Variação</h6>
+        <p class="mb-1">
+          Receitas: 
+          {% if estatisticas.comparacao_mensal.variacao_receitas >= 0 %}
+            <span class="text-success">+R$ {{ estatisticas.comparacao_mensal.variacao_receitas|round(2) }}</span>
+          {% else %}
+            <span class="text-danger">R$ {{ estatisticas.comparacao_mensal.variacao_receitas|round(2) }}</span>
+          {% endif %}
+        </p>
+        <p class="mb-0">
+          Despesas: 
+          {% if estatisticas.comparacao_mensal.variacao_despesas >= 0 %}
+            <span class="text-danger">+R$ {{ estatisticas.comparacao_mensal.variacao_despesas|round(2) }}</span>
+          {% else %}
+            <span class="text-success">R$ {{ estatisticas.comparacao_mensal.variacao_despesas|round(2) }}</span>
+          {% endif %}
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row mb-4">
+  <div class="col-md-12">
+    <div class="card">
+      <div class="card-header bg-warning">
+        <h5 class="mb-0">Previsão de Gastos</h5>
+      </div>
+      <div class="card-body">
+        <p class="mb-2">Baseado no seu ritmo de gastos atual, a previsão para o final do mês é:</p>
+        <h4 class="text-danger mb-3">R$ {{ estatisticas.previsao_gastos|round(2) }}</h4>
+        <p class="text-muted mb-0">Média de despesas dos últimos 3 meses: <strong>R$ {{ estatisticas.media_despesas_3meses|round(2) }}</strong></p>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="row mb-3">
   <div class="col-md-4">
     <div class="card text-bg-success text-center">
@@ -30,9 +106,9 @@
   </div>
 </div>
 
-<a href="{{ url_for('nova_transacao') }}" class="btn btn-success mb-3">➕ Nova Transação</a>
+<a href="{{ url_for('nova_transacao') }}" class="btn btn-success mb-3">Nova Transação</a>
 
-<!-- Adicionando seção de filtros avançados -->
+<!-- Seção de filtros avançados -->
 <div class="card mb-4">
   <div class="card-header">
     <h5 class="mb-0">Filtros Avançados</h5>
@@ -41,8 +117,7 @@
     <form method="GET" action="{{ url_for('dashboard') }}" class="row g-3">
       <div class="col-md-3">
         <label for="busca" class="form-label">Buscar por descrição</label>
-        <input type="text" class="form-control" id="busca" name="busca" 
-               placeholder="Digite para buscar..." value="{{ filtro_busca or '' }}">
+        <input type="text" class="form-control" id="busca" name="busca" placeholder="Digite para buscar..." value="{{ filtro_busca or '' }}">
       </div>
       
       <div class="col-md-2">
@@ -66,14 +141,12 @@
       
       <div class="col-md-2">
         <label for="data_inicial" class="form-label">Data Inicial</label>
-        <input type="date" class="form-control" id="data_inicial" name="data_inicial" 
-               value="{{ data_inicial_str or '' }}">
+        <input type="date" class="form-control" id="data_inicial" name="data_inicial" value="{{ data_inicial_str or '' }}">
       </div>
       
       <div class="col-md-2">
         <label for="data_final" class="form-label">Data Final</label>
-        <input type="date" class="form-control" id="data_final" name="data_final" 
-               value="{{ data_final_str or '' }}">
+        <input type="date" class="form-control" id="data_final" name="data_final" value="{{ data_final_str or '' }}">
       </div>
       
       <div class="col-12">
@@ -94,13 +167,6 @@
 {% if total_receitas > 0 and saldo > total_receitas * 0.5 %}
 <div class="alert alert-success" role="alert">
   Ótimo! Você poupou mais da metade da sua receita!
-</div>
-{% endif %}
-
-{% set media_despesas = total_despesas / 2 %} {# Exemplo simples de média #}
-{% if total_despesas > media_despesas * 1.5 %}
-<div class="alert alert-warning" role="alert">
-  Suas despesas deste mês estão acima da média!
 </div>
 {% endif %}
 
@@ -170,19 +236,3 @@
   </tbody>
 </table>
 {% endblock %}
-<script>
-  // Script para alternar campo de categoria personalizada
-  function toggleCategoriaCustomizada() {
-    var select = document.getElementById('categoria_select');
-    var customDiv = document.getElementById('categoria_customizada_div');
-    if (select.value === 'outra') {
-      customDiv.style.display = 'block';
-    } else {
-      customDiv.style.display = 'none';
-    }
-  }
-
-  // Chamar a função ao carregar a página para manter o estado correto
-  document.addEventListener('DOMContentLoaded', function() {
-    toggleCategoriaCustomizada();
-  });
