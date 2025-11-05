@@ -1,39 +1,188 @@
 {% extends 'base.html' %}
+
 {% block content %}
 <h2>Olá, {{ current_user.nome }}!</h2>
+
 <div class="row mb-3">
   <div class="col-md-4">
-    <div class="card text-bg-success text-center"><div class="card-body">
-      <h5>Receitas</h5><p>R$ {{ total_receitas|round(2) }}</p>
-    </div></div>
+    <div class="card text-bg-success text-center">
+      <div class="card-body">
+        <h5>Receitas</h5>
+        <p>R$ {{ total_receitas|round(2) }}</p>
+      </div>
+    </div>
   </div>
   <div class="col-md-4">
-    <div class="card text-bg-danger text-center"><div class="card-body">
-      <h5>Despesas</h5><p>R$ {{ total_despesas|round(2) }}</p>
-    </div></div>
+    <div class="card text-bg-danger text-center">
+      <div class="card-body">
+        <h5>Despesas</h5>
+        <p>R$ {{ total_despesas|round(2) }}</p>
+      </div>
+    </div>
   </div>
   <div class="col-md-4">
-    <div class="card text-bg-primary text-center"><div class="card-body">
-      <h5>Saldo</h5><p>R$ {{ saldo|round(2) }}</p>
-    </div></div>
+    <div class="card text-bg-primary text-center">
+      <div class="card-body">
+        <h5>Saldo</h5>
+        <p>R$ {{ saldo|round(2) }}</p>
+      </div>
+    </div>
   </div>
 </div>
 
 <a href="{{ url_for('nova_transacao') }}" class="btn btn-success mb-3">➕ Nova Transação</a>
 
+<!-- Adicionando seção de filtros avançados -->
+<div class="card mb-4">
+  <div class="card-header">
+    <h5 class="mb-0">Filtros Avançados</h5>
+  </div>
+  <div class="card-body">
+    <form method="GET" action="{{ url_for('dashboard') }}" class="row g-3">
+      <div class="col-md-3">
+        <label for="busca" class="form-label">Buscar por descrição</label>
+        <input type="text" class="form-control" id="busca" name="busca" 
+               placeholder="Digite para buscar..." value="{{ filtro_busca or '' }}">
+      </div>
+      
+      <div class="col-md-2">
+        <label for="tipo" class="form-label">Tipo</label>
+        <select class="form-select" id="tipo" name="tipo">
+          <option value="todos" {% if not filtro_tipo or filtro_tipo == 'todos' %}selected{% endif %}>Todos</option>
+          <option value="receita" {% if filtro_tipo == 'receita' %}selected{% endif %}>Receita</option>
+          <option value="despesa" {% if filtro_tipo == 'despesa' %}selected{% endif %}>Despesa</option>
+        </select>
+      </div>
+      
+      <div class="col-md-3">
+        <label for="categoria" class="form-label">Categoria</label>
+        <select class="form-select" id="categoria" name="categoria">
+          <option value="todas" {% if not filtro_categoria or filtro_categoria == 'todas' %}selected{% endif %}>Todas</option>
+          {% for cat in categorias_disponiveis %}
+          <option value="{{ cat }}" {% if filtro_categoria == cat %}selected{% endif %}>{{ cat }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      
+      <div class="col-md-2">
+        <label for="data_inicial" class="form-label">Data Inicial</label>
+        <input type="date" class="form-control" id="data_inicial" name="data_inicial" 
+               value="{{ data_inicial_str or '' }}">
+      </div>
+      
+      <div class="col-md-2">
+        <label for="data_final" class="form-label">Data Final</label>
+        <input type="date" class="form-control" id="data_final" name="data_final" 
+               value="{{ data_final_str or '' }}">
+      </div>
+      
+      <div class="col-12">
+        <button type="submit" class="btn btn-primary">Aplicar Filtros</button>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Limpar Filtros</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ALERTAS -->
+{% if saldo < 0 %}
+<div class="alert alert-danger" role="alert">
+  Seu saldo está negativo: R$ {{ saldo | round(2) }}. Atenção aos gastos!
+</div>
+{% endif %}
+
+{% if total_receitas > 0 and saldo > total_receitas * 0.5 %}
+<div class="alert alert-success" role="alert">
+  Ótimo! Você poupou mais da metade da sua receita!
+</div>
+{% endif %}
+
+{% set media_despesas = total_despesas / 2 %} {# Exemplo simples de média #}
+{% if total_despesas > media_despesas * 1.5 %}
+<div class="alert alert-warning" role="alert">
+  Suas despesas deste mês estão acima da média!
+</div>
+{% endif %}
+
+<!-- RESUMO MENSAL -->
+{% if relatorio_mensal %}
+<h3>Resumo Mensal</h3>
+<table class="table table-bordered mb-4">
+  <thead>
+    <tr>
+      <th>Mês/Ano</th>
+      <th>Receitas</th>
+      <th>Despesas</th>
+      <th>Saldo</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in relatorio_mensal %}
+    <tr>
+      <td>{{ r.mes_ano }}</td>
+      <td>R$ {{ r.total_receitas | round(2) }}</td>
+      <td>R$ {{ r.total_despesas | round(2) }}</td>
+      <td>R$ {{ r.saldo | round(2) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<!-- TABELA DE TRANSAÇÕES -->
 <table class="table table-striped">
-  <thead><tr><th>Descrição</th><th>Tipo</th><th>Categoria</th><th>Valor</th><th>Data</th><th></th></tr></thead>
+  <thead>
+    <tr>
+      <th>Descrição</th>
+      <th>Tipo</th>
+      <th>Categoria</th>
+      <th>Valor</th>
+      <th>Data</th>
+      <th></th>
+    </tr>
+  </thead>
   <tbody>
     {% for t in transacoes %}
     <tr>
       <td>{{ t.descricao }}</td>
-      <td>{{ t.tipo }}</td>
-      <td>{{ t.categoria }}</td>
-      <td>R$ {{ t.valor }}</td>
+      <td>
+        {% if t.tipo == 'receita' %}
+          <span class="badge bg-success">Receita</span>
+        {% else %}
+          <span class="badge bg-danger">Despesa</span>
+        {% endif %}
+      </td>
+      <td>
+        {% if t.categoria %}
+          <span class="badge bg-secondary">{{ t.categoria }}</span>
+        {% else %}
+          <span class="badge bg-light text-dark">Sem categoria</span>
+        {% endif %}
+      </td>
+      <td>R$ {{ t.valor | round(2) }}</td>
       <td>{{ t.data.strftime('%d/%m/%Y') }}</td>
-      <td><a href="{{ url_for('delete', id=t.id) }}" class="btn btn-sm btn-outline-danger">Excluir</a></td>
+      <td>
+        <a href="{{ url_for('editar_transacao', id=t.id) }}" class="btn btn-sm btn-outline-primary">Editar</a>
+        <a href="{{ url_for('delete', id=t.id) }}" class="btn btn-sm btn-outline-danger">Excluir</a>
+      </td>
     </tr>
     {% endfor %}
   </tbody>
 </table>
 {% endblock %}
+<script>
+  // Script para alternar campo de categoria personalizada
+  function toggleCategoriaCustomizada() {
+    var select = document.getElementById('categoria_select');
+    var customDiv = document.getElementById('categoria_customizada_div');
+    if (select.value === 'outra') {
+      customDiv.style.display = 'block';
+    } else {
+      customDiv.style.display = 'none';
+    }
+  }
+
+  // Chamar a função ao carregar a página para manter o estado correto
+  document.addEventListener('DOMContentLoaded', function() {
+    toggleCategoriaCustomizada();
+  });

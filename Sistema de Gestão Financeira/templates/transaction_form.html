@@ -1,15 +1,122 @@
 {% extends 'base.html' %}
+
 {% block content %}
-<h2>Nova Transação</h2>
+<!-- Adicionando suporte para edição de transações -->
+<h2>{% if transacao %}Editar Transação{% else %}Nova Transação{% endif %}</h2>
+
 <form method="POST">
-  <input class="form-control mb-2" type="text" name="descricao" placeholder="Descrição" required>
-  <input class="form-control mb-2" type="number" step="0.01" name="valor" placeholder="Valor" required>
-  <select class="form-select mb-2" name="tipo" required>
-    <option value="receita">Receita</option>
-    <option value="despesa">Despesa</option>
-  </select>
-  <input class="form-control mb-2" type="text" name="categoria" placeholder="Categoria">
-  <input class="form-control mb-2" type="date" name="data" required>
-  <button class="btn btn-primary">Salvar</button>
+  <div class="mb-3">
+    <label for="descricao" class="form-label">Descrição</label>
+    <input type="text" class="form-control" id="descricao" name="descricao" 
+           value="{{ transacao.descricao if transacao else '' }}" required>
+  </div>
+
+  <div class="mb-3">
+    <label for="valor" class="form-label">Valor</label>
+    <input type="number" step="0.01" class="form-control" id="valor" name="valor" 
+           value="{{ transacao.valor if transacao else '' }}" required>
+  </div>
+
+  <div class="mb-3">
+    <label for="tipo" class="form-label">Tipo</label>
+    <select class="form-select" id="tipo" name="tipo" required>
+      <option value="receita" {% if transacao and transacao.tipo == 'receita' %}selected{% endif %}>Receita</option>
+      <option value="despesa" {% if transacao and transacao.tipo == 'despesa' %}selected{% endif %}>Despesa</option>
+    </select>
+  </div>
+
+  <!-- Substituindo input text por select com categorias predefinidas -->
+  <div class="mb-3">
+    <label for="categoria" class="form-label">Categoria</label>
+    <select class="form-select" id="categoria_select" name="categoria" onchange="toggleCategoriaCustomizada()">
+      <option value="">Selecione uma categoria</option>
+      <optgroup label="Despesas">
+        <option value="Alimentação" {% if transacao and transacao.categoria == 'Alimentação' %}selected{% endif %}>Alimentação</option>
+        <option value="Transporte" {% if transacao and transacao.categoria == 'Transporte' %}selected{% endif %}>Transporte</option>
+        <option value="Saúde" {% if transacao and transacao.categoria == 'Saúde' %}selected{% endif %}>Saúde</option>
+        <option value="Educação" {% if transacao and transacao.categoria == 'Educação' %}selected{% endif %}>Educação</option>
+        <option value="Moradia" {% if transacao and transacao.categoria == 'Moradia' %}selected{% endif %}>Moradia</option>
+        <option value="Lazer" {% if transacao and transacao.categoria == 'Lazer' %}selected{% endif %}>Lazer</option>
+        <option value="Vestuário" {% if transacao and transacao.categoria == 'Vestuário' %}selected{% endif %}>Vestuário</option>
+        <option value="Contas" {% if transacao and transacao.categoria == 'Contas' %}selected{% endif %}>Contas</option>
+      </optgroup>
+      <optgroup label="Receitas">
+        <option value="Salário" {% if transacao and transacao.categoria == 'Salário' %}selected{% endif %}>Salário</option>
+        <option value="Freelance" {% if transacao and transacao.categoria == 'Freelance' %}selected{% endif %}>Freelance</option>
+        <option value="Investimentos" {% if transacao and transacao.categoria == 'Investimentos' %}selected{% endif %}>Investimentos</option>
+        <option value="Vendas" {% if transacao and transacao.categoria == 'Vendas' %}selected{% endif %}>Vendas</option>
+        <option value="Bônus" {% if transacao and transacao.categoria == 'Bônus' %}selected{% endif %}>Bônus</option>
+      </optgroup>
+      <option value="outra">✏️ Outra (personalizada)</option>
+    </select>
+  </div>
+
+  <!-- Campo para categoria customizada (oculto por padrão) -->
+  <div class="mb-3" id="categoria_customizada_div" style="display: none;">
+    <label for="categoria_customizada" class="form-label">Digite a categoria personalizada</label>
+    <input type="text" class="form-control" id="categoria_customizada" placeholder="Ex: Pets, Doações, etc.">
+  </div>
+
+  <div class="mb-3">
+    <label for="data" class="form-label">Data</label>
+    <input type="date" class="form-control" id="data" name="data" 
+           value="{{ transacao.data.strftime('%Y-%m-%d') if transacao else '' }}" required>
+  </div>
+
+  <button type="submit" class="btn btn-primary">
+    {% if transacao %}Atualizar{% else %}Adicionar{% endif %}
+  </button>
+  <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Cancelar</a>
 </form>
+
+<!-- JavaScript para gerenciar categoria customizada -->
+<script>
+  // Verifica se há uma categoria existente que não está na lista predefinida
+  window.addEventListener('DOMContentLoaded', function() {
+    const categoriaAtual = "{{ transacao.categoria if transacao else '' }}";
+    const categoriaSelect = document.getElementById('categoria_select');
+    const opcoesPredefinidas = Array.from(categoriaSelect.options).map(opt => opt.value);
+    
+    if (categoriaAtual && !opcoesPredefinidas.includes(categoriaAtual)) {
+      // Se a categoria atual não está na lista, seleciona "outra" e mostra o campo customizado
+      categoriaSelect.value = 'outra';
+      document.getElementById('categoria_customizada_div').style.display = 'block';
+      document.getElementById('categoria_customizada').value = categoriaAtual;
+    }
+  });
+
+  function toggleCategoriaCustomizada() {
+    const select = document.getElementById('categoria_select');
+    const customDiv = document.getElementById('categoria_customizada_div');
+    const customInput = document.getElementById('categoria_customizada');
+    
+    if (select.value === 'outra') {
+      customDiv.style.display = 'block';
+      customInput.required = true;
+      customInput.focus();
+    } else {
+      customDiv.style.display = 'none';
+      customInput.required = false;
+      customInput.value = '';
+    }
+  }
+
+  // Antes de enviar o formulário, ajusta o valor da categoria
+  document.querySelector('form').addEventListener('submit', function(e) {
+    const select = document.getElementById('categoria_select');
+    const customInput = document.getElementById('categoria_customizada');
+    
+    if (select.value === 'outra' && customInput.value.trim()) {
+      // Cria um input hidden com a categoria customizada
+      const hiddenInput = document.createElement('input');
+      hiddenInput.type = 'hidden';
+      hiddenInput.name = 'categoria';
+      hiddenInput.value = customInput.value.trim();
+      this.appendChild(hiddenInput);
+      
+      // Remove o name do select para não enviar "outra"
+      select.removeAttribute('name');
+    }
+  });
+</script>
 {% endblock %}
